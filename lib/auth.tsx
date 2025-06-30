@@ -42,8 +42,28 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 // Configuration - Replace with your chosen service
-const STORAGE_CONFIG = {
-  service: 'jsonbin', // 'jsonbin' | 'pantry' | 'jsonstorage'
+type StorageService = 'jsonbin' | 'pantry' | 'jsonstorage';
+
+interface StorageConfig {
+  service: StorageService;
+  jsonbin: {
+    binId: string;
+    apiKey: string;
+    baseUrl: string;
+  };
+  pantry: {
+    pantryId: string;
+    basketName: string;
+    baseUrl: string;
+  };
+  jsonstorage: {
+    endpointId: string;
+    baseUrl: string;
+  };
+}
+
+const STORAGE_CONFIG: StorageConfig = {
+  service: 'jsonbin' as StorageService, // 'jsonbin' | 'pantry' | 'jsonstorage'
   
   // JSONBin.io configuration
   jsonbin: {
@@ -73,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Storage API functions
   const loadAuthData = async (): Promise<AuthData> => {
-    const config = STORAGE_CONFIG[STORAGE_CONFIG.service];
+    const config = STORAGE_CONFIG[STORAGE_CONFIG.service as keyof Omit<StorageConfig, 'service'>];
     
     try {
       let response;
@@ -121,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveAuthData = async (data: AuthData): Promise<void> => {
-    const config = STORAGE_CONFIG[STORAGE_CONFIG.service];
+    const config = STORAGE_CONFIG[STORAGE_CONFIG.service as keyof Omit<StorageConfig, 'service'>];
     
     try {
       switch (STORAGE_CONFIG.service) {
