@@ -18,13 +18,21 @@ export interface Admin {
   created_at: string;
 }
 
+interface AuthData {
+  superadmin_credentials: {
+    username: string;
+    password: string;
+  };
+  admins: Admin[];
+}
+
 interface AuthContextType {
   user: User | null;
   admins: Admin[];
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   addAdmin: (username: string, password: string, api_host: string) => Promise<boolean>;
-  removeAdmin: (id: string) => void;
+  removeAdmin: (id: string) => Promise<void>;
   updateAdmin: (id: string, username: string, password: string, api_host: string) => Promise<boolean>;
   updateCurrentAdminProfile: (username: string, password: string) => Promise<boolean>;
   updateSuperAdminCredentials: (username: string, password: string) => Promise<void>;
@@ -33,69 +41,174 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Configuration - Replace with your chosen service
+const STORAGE_CONFIG = {
+  service: 'jsonbin', // 'jsonbin' | 'pantry' | 'jsonstorage'
+  
+  // JSONBin.io configuration
+  jsonbin: {
+    binId: '686238628561e97a502eb223 ', // Replace with your bin ID
+    apiKey: '$2a$10$m301Vhg578IV6wGTDKXD0OC487psmAWMGU2BxI12sC5qnAoIk2W/u', // Replace with your API key (optional for read-only)
+    baseUrl: 'https://api.jsonbin.io/v3/b'
+  },
+  
+  // Pantry configuration
+  pantry: {
+    pantryId: 'YOUR_PANTRY_ID', // Replace with your pantry ID
+    basketName: 'auth_data',
+    baseUrl: 'https://getpantry.cloud/apiv1/pantry'
+  },
+  
+  // JsonStorage.net configuration
+  jsonstorage: {
+    endpointId: 'YOUR_ENDPOINT_ID', // Replace with your endpoint ID
+    baseUrl: 'https://api.jsonstorage.net/v1/json'
+  }
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Storage API functions
+  const loadAuthData = async (): Promise<AuthData> => {
+    const config = STORAGE_CONFIG[STORAGE_CONFIG.service];
+    
+    try {
+      let response;
+      
+      switch (STORAGE_CONFIG.service) {
+        case 'jsonbin':
+          response = await fetch(`${config.baseUrl}/${config.binId}/latest`, {
+            headers: config.apiKey ? { 'X-Master-Key': config.apiKey } : {}
+          });
+          if (response.ok) {
+            const data = await response.json();
+            return data.record;
+          }
+          break;
+          
+        case 'pantry':
+          response = await fetch(`${config.baseUrl}/${config.pantryId}/basket/${config.basketName}`);
+          if (response.ok) {
+            return await response.json();
+          }
+          break;
+          
+        case 'jsonstorage':
+          response = await fetch(`${config.baseUrl}/${config.endpointId}`);
+          if (response.ok) {
+            return await response.json();
+          }
+          break;
+      }
+      
+      // If no data exists, return defaults
+      throw new Error('No data found');
+      
+    } catch (error) {
+      console.log('No existing data found, using defaults');
+      // Return default data structure
+      return {
+        superadmin_credentials: {
+          username: 'superadmin',
+          password: 'admin123'
+        },
+        admins: []
+      };
+    }
+  };
+
+  const saveAuthData = async (data: AuthData): Promise<void> => {
+    const config = STORAGE_CONFIG[STORAGE_CONFIG.service];
+    
+    try {
+      switch (STORAGE_CONFIG.service) {
+        case 'jsonbin':
+          await fetch(`${config.baseUrl}/${config.binId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(config.apiKey ? { 'X-Master-Key': config.apiKey } : {})
+            },
+            body: JSON.stringify(data)
+          });
+          break;
+          
+        case 'pantry':
+          await fetch(`${config.baseUrl}/${config.pantryId}/basket/${config.basketName}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+          });
+          break;
+          
+        case 'jsonstorage':
+          await fetch(`${config.baseUrl}/${config.endpointId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+          });
+          break;
+      }
+    } catch (error) {
+      console.error('Failed to save auth data:', error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
-    // Load user from cookie
-    const savedUser = Cookies.get('user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-        Cookies.remove('user');
+    const initializeAuth = async () => {
+      // Load user from cookie
+      const savedUser = Cookies.get('user');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch (error) {
+          console.error('Error parsing saved user:', error);
+          Cookies.remove('user');
+        }
       }
-    }
 
-    // Load admins from localStorage (acts as our "file storage")
-    const savedAdmins = localStorage.getItem('admins');
-    if (savedAdmins) {
+      // Load auth data from remote storage
       try {
-        setAdmins(JSON.parse(savedAdmins));
+        const authData = await loadAuthData();
+        setAdmins(authData.admins);
+        
+        // Initialize with default data if this is the first time
+        if (authData.admins.length === 0 && 
+            authData.superadmin_credentials.username === 'superadmin' && 
+            authData.superadmin_credentials.password === 'admin123') {
+          await saveAuthData(authData);
+        }
       } catch (error) {
-        console.error('Error parsing saved admins:', error);
-        localStorage.removeItem('admins');
+        console.error('Error loading auth data:', error);
       }
-    }
 
-    // Initialize superadmin credentials if not exists
-    const superadminCreds = localStorage.getItem('superadmin_credentials');
-    if (!superadminCreds) {
-      // Set default superadmin credentials on first run
-      const defaultCreds = { username: 'superadmin', password: 'admin123' };
-      localStorage.setItem('superadmin_credentials', JSON.stringify(defaultCreds));
-    }
+      setIsLoading(false);
+    };
 
-    setIsLoading(false);
+    initializeAuth();
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
     try {
-      // Load superadmin credentials from localStorage
-      const superadminCreds = localStorage.getItem('superadmin_credentials');
-      let superUsername = 'superadmin';
-      let superPassword = 'admin123';
+      // Load fresh data from remote storage
+      const authData = await loadAuthData();
       
-      if (superadminCreds) {
-        try {
-          const parsed = JSON.parse(superadminCreds);
-          superUsername = parsed.username;
-          superPassword = parsed.password;
-        } catch (error) {
-          console.error('Error parsing superadmin credentials:', error);
-        }
-      }
-
       // Super admin login
-      if (username === superUsername && password === superPassword) {
+      if (username === authData.superadmin_credentials.username && 
+          password === authData.superadmin_credentials.password) {
         const superUser: User = {
           id: 'super-1',
-          username: superUsername,
+          username: authData.superadmin_credentials.username,
           role: 'superadmin'
         };
         setUser(superUser);
@@ -103,8 +216,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
 
-      // Regular admin login - check against stored admins
-      const admin = admins.find(a => a.username === username && a.password === password);
+      // Regular admin login
+      const admin = authData.admins.find(a => a.username === username && a.password === password);
       if (admin) {
         const adminUser: User = {
           id: admin.id,
@@ -117,6 +230,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
 
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
       return false;
     } finally {
       setIsLoading(false);
@@ -131,72 +247,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const addAdmin = async (username: string, password: string, api_host: string): Promise<boolean> => {
     if (user?.role !== 'superadmin') return false;
 
-    // Check if username already exists
-    if (admins.some(admin => admin.username === username)) {
+    try {
+      const authData = await loadAuthData();
+      
+      // Check if username already exists
+      if (authData.admins.some(admin => admin.username === username)) {
+        return false;
+      }
+
+      const newAdmin: Admin = {
+        id: `admin-${Date.now()}`,
+        username,
+        password,
+        api_host,
+        created_at: new Date().toISOString()
+      };
+
+      authData.admins.push(newAdmin);
+      await saveAuthData(authData);
+      setAdmins(authData.admins);
+      return true;
+    } catch (error) {
+      console.error('Error adding admin:', error);
       return false;
     }
-
-    const newAdmin: Admin = {
-      id: `admin-${Date.now()}`,
-      username,
-      password, // In production, this should be hashed
-      api_host,
-      created_at: new Date().toISOString()
-    };
-
-    const updatedAdmins = [...admins, newAdmin];
-    setAdmins(updatedAdmins);
-    localStorage.setItem('admins', JSON.stringify(updatedAdmins));
-    return true;
   };
 
-  const removeAdmin = (id: string) => {
+  const removeAdmin = async (id: string): Promise<void> => {
     if (user?.role !== 'superadmin') return;
 
-    const updatedAdmins = admins.filter(a => a.id !== id);
-    setAdmins(updatedAdmins);
-    localStorage.setItem('admins', JSON.stringify(updatedAdmins));
+    try {
+      const authData = await loadAuthData();
+      authData.admins = authData.admins.filter(a => a.id !== id);
+      await saveAuthData(authData);
+      setAdmins(authData.admins);
+    } catch (error) {
+      console.error('Error removing admin:', error);
+      throw error;
+    }
   };
 
   const updateAdmin = async (id: string, username: string, password: string, api_host: string): Promise<boolean> => {
     if (user?.role !== 'superadmin') return false;
 
-    // Check if username already exists (excluding current admin)
-    if (admins.some(admin => admin.username === username && admin.id !== id)) {
+    try {
+      const authData = await loadAuthData();
+      
+      // Check if username already exists (excluding current admin)
+      if (authData.admins.some(admin => admin.username === username && admin.id !== id)) {
+        return false;
+      }
+
+      authData.admins = authData.admins.map(admin => 
+        admin.id === id 
+          ? { ...admin, username, password, api_host }
+          : admin
+      );
+      
+      await saveAuthData(authData);
+      setAdmins(authData.admins);
+      return true;
+    } catch (error) {
+      console.error('Error updating admin:', error);
       return false;
     }
-
-    const updatedAdmins = admins.map(admin => 
-      admin.id === id 
-        ? { ...admin, username, password, api_host }
-        : admin
-    );
-    
-    setAdmins(updatedAdmins);
-    localStorage.setItem('admins', JSON.stringify(updatedAdmins));
-    return true;
   };
 
   const updateCurrentAdminProfile = async (username: string, password: string): Promise<boolean> => {
     if (!user || user.role !== 'admin') return false;
 
-    // Check if username already exists (excluding current admin)
-    if (admins.some(admin => admin.username === username && admin.id !== user.id)) {
+    try {
+      const authData = await loadAuthData();
+      
+      // Check if username already exists (excluding current admin)
+      if (authData.admins.some(admin => admin.username === username && admin.id !== user.id)) {
+        return false;
+      }
+
+      authData.admins = authData.admins.map(admin => 
+        admin.id === user.id 
+          ? { ...admin, username, password }
+          : admin
+      );
+      
+      await saveAuthData(authData);
+      setAdmins(authData.admins);
+      
+      // Log out the user so they need to login with new credentials
+      logout();
+      return true;
+    } catch (error) {
+      console.error('Error updating profile:', error);
       return false;
     }
-
-    const updatedAdmins = admins.map(admin => 
-      admin.id === user.id 
-        ? { ...admin, username, password }
-        : admin
-    );
-    
-    setAdmins(updatedAdmins);
-    localStorage.setItem('admins', JSON.stringify(updatedAdmins));
-    
-    // Log out the user so they need to login with new credentials
-    logout();
-    return true;
   };
 
   const updateSuperAdminCredentials = async (username: string, password: string): Promise<void> => {
@@ -204,12 +347,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Only superadmin can update credentials');
     }
 
-    // Update the superadmin credentials in localStorage
-    const newCredentials = { username, password };
-    localStorage.setItem('superadmin_credentials', JSON.stringify(newCredentials));
-    
-    // Log out the user so they need to login with new credentials
-    logout();
+    try {
+      const authData = await loadAuthData();
+      authData.superadmin_credentials = { username, password };
+      await saveAuthData(authData);
+      
+      // Log out the user so they need to login with new credentials
+      logout();
+    } catch (error) {
+      console.error('Error updating superadmin credentials:', error);
+      throw error;
+    }
   };
 
   return (
