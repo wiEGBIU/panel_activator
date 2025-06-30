@@ -160,7 +160,8 @@ export function LogsPanel() {
   };
 
   const getUniqueFunctions = () => {
-    const functions = [...new Set(logs.map(log => log.function))];
+    const functionSet = new Set(logs.map(log => log.function));
+    const functions = Array.from(functionSet);
     return functions.sort();
   };
 
