@@ -7,11 +7,14 @@ import { LoginForm } from '@/components/login-form';
 import { DashboardHeader } from '@/components/dashboard-header';
 import { DashboardNavigation } from '@/components/dashboard-navigation';
 import { OverviewPanel } from '@/components/overview-panel';
+import { SuperAdminOverviewPanel } from '@/components/superadmin-overview-panel';
 import { AccessCodesPanel } from '@/components/access-codes-panel';
 import { PromoCodesPanel } from '@/components/promo-codes-panel';
 import { UserActivationPanel } from '@/components/user-activation-panel';
 import { AdminManagementPanel } from '@/components/admin-management-panel';
 import { ProfilePanel } from '@/components/profile-panel';
+import { LogsPanel } from '@/components/logs-panel';
+import { CheckerPanel } from '@/components/checker-panel';
 
 function DashboardContent() {
   const { user, isLoading } = useAuth();
@@ -36,19 +39,27 @@ function DashboardContent() {
   const renderActivePanel = () => {
     switch (activeTab) {
       case 'overview':
-        return <OverviewPanel onNavigate={setActiveTab} />;
+        return user.role === 'superadmin' ? 
+          <SuperAdminOverviewPanel /> : 
+          <OverviewPanel onNavigate={setActiveTab} />;
       case 'access-codes':
-        return <AccessCodesPanel />;
+        return user.role === 'admin' ? <AccessCodesPanel /> : null;
       case 'promo-codes':
-        return <PromoCodesPanel />;
+        return user.role === 'admin' ? <PromoCodesPanel /> : null;
       case 'user-activation':
-        return <UserActivationPanel />;
+        return user.role === 'admin' ? <UserActivationPanel /> : null;
+      case 'logs':
+        return user.role === 'admin' ? <LogsPanel /> : null;
+      case 'checker':
+        return user.role === 'admin' ? <CheckerPanel /> : null;
       case 'profile':
         return <ProfilePanel />;
       case 'admin-management':
-        return <AdminManagementPanel />;
+        return user.role === 'superadmin' ? <AdminManagementPanel /> : null;
       default:
-        return <OverviewPanel onNavigate={setActiveTab} />;
+        return user.role === 'superadmin' ? 
+          <SuperAdminOverviewPanel /> : 
+          <OverviewPanel onNavigate={setActiveTab} />;
     }
   };
 

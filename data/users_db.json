@@ -1,0 +1,7 @@
+{
+  "superadmin_credentials": {
+    "username": "superadmin",
+    "password": "admin123"
+  },
+  "admins": []
+}
