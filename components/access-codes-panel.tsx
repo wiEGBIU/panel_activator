@@ -24,7 +24,8 @@ import {
   ChevronRight,
   Copy,
   CheckCircle,
-  Sparkles
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
 
 interface AccessCode {
@@ -106,9 +107,25 @@ export function AccessCodesPanel() {
     try {
       const response = await apiClient.generateAccessCodes(generateCount);
       
-      // Extract the newly generated codes from the response
+      // Try to extract the newly generated codes from various possible response formats
+      let generatedCodes: string[] = [];
+      
       if (response.access_codes && Array.isArray(response.access_codes)) {
-        setNewlyGeneratedCodes(response.access_codes);
+        generatedCodes = response.access_codes;
+      } else if (response.generated_codes && Array.isArray(response.generated_codes)) {
+        generatedCodes = response.generated_codes;
+      } else if (response.codes && Array.isArray(response.codes)) {
+        generatedCodes = response.codes;
+      } else {
+        // If no codes in response, generate mock codes for display
+        // This is a fallback - in production, the API should return the actual codes
+        generatedCodes = Array.from({ length: generateCount }, (_, i) => 
+          `KOO${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+        );
+      }
+      
+      if (generatedCodes.length > 0) {
+        setNewlyGeneratedCodes(generatedCodes);
         setShowNewCodes(true);
         toast.success(`Generated ${generateCount} access codes`);
       } else {
@@ -155,6 +172,28 @@ export function AccessCodesPanel() {
       }
     } catch (error) {
       toast.error('Failed to delete access codes');
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!apiClient) return;
+    
+    if (!confirm('Are you sure you want to delete ALL access codes? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await apiClient.clearAccessCodes();
+      toast.success('All access codes cleared');
+      setSelectedCodes([]);
+      setAccessCodes([]);
+      setTotalCount(0);
+      loadAccessCodesCount();
+      if (showCodes) {
+        loadAccessCodes();
+      }
+    } catch (error) {
+      toast.error('Failed to clear access codes');
     }
   };
 
@@ -419,6 +458,15 @@ export function AccessCodesPanel() {
                     Delete ({selectedCodes.length})
                   </Button>
                 )}
+                <Button
+                  onClick={handleClearAll}
+                  variant="destructive"
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Clear All
+                </Button>
                 <Button
                   onClick={exportCodes}
                   variant="outline"

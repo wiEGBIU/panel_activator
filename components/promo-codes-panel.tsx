@@ -26,7 +26,8 @@ import {
   CheckCircle,
   Upload,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle
 } from 'lucide-react';
 
 interface PromoCodesData {
@@ -188,10 +189,20 @@ export function PromoCodesPanel() {
   const handleClearAll = async () => {
     if (!apiClient) return;
     
+    if (!confirm('Are you sure you want to delete ALL promo codes? This action cannot be undone.')) {
+      return;
+    }
+    
     try {
       await apiClient.clearPromoCodes();
       toast.success('All promo codes cleared');
       setSelectedCodes([]);
+      setPromoData({
+        working_promo_codes: [],
+        non_working_promo_codes: [],
+        working_count: 0,
+        non_working_count: 0
+      });
       loadPromoCodesCounts();
       if (showCodes) {
         loadPromoCodes();
@@ -378,25 +389,24 @@ export function PromoCodesPanel() {
               </CardTitle>
               <div className="flex items-center space-x-3">
                 {selectedCodes.length > 0 && (
-                  <>
-                    <Button
-                      onClick={handleBulkDelete}
-                      variant="destructive"
-                      size="sm"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete ({selectedCodes.length})
-                    </Button>
-                    <Button
-                      onClick={handleClearAll}
-                      variant="destructive"
-                      size="sm"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Clear All
-                    </Button>
-                  </>
+                  <Button
+                    onClick={handleBulkDelete}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete ({selectedCodes.length})
+                  </Button>
                 )}
+                <Button
+                  onClick={handleClearAll}
+                  variant="destructive"
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Clear All
+                </Button>
                 <Button
                   onClick={exportCodes}
                   variant="outline"

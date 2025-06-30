@@ -19,6 +19,15 @@ interface AccessCodesResponse {
   count: number;
 }
 
+interface GenerateAccessCodesResponse {
+  status: string;
+  message: string;
+  access_codes?: string[];
+  generated_codes?: string[];
+  codes?: string[];
+  count?: number;
+}
+
 interface PromoCodesResponse {
   working_promo_codes: string[];
   non_working_promo_codes: string[];
@@ -119,8 +128,8 @@ class ApiClient {
     return this.request(`/access-code/${code}`);
   }
 
-  async generateAccessCodes(count: number): Promise<any> {
-    return this.request('/generate-access-codes', {
+  async generateAccessCodes(count: number): Promise<GenerateAccessCodesResponse> {
+    return this.request<GenerateAccessCodesResponse>('/generate-access-codes', {
       method: 'POST',
       body: JSON.stringify({ count }),
     });
@@ -198,4 +207,4 @@ class ApiClient {
 }
 
 export { ApiClient };
-export type { ApiConfig, CountResponse, PromoCodesCountsResponse, AccessCodesResponse, PromoCodesResponse, ApiResponse };
+export type { ApiConfig, CountResponse, PromoCodesCountsResponse, AccessCodesResponse, PromoCodesResponse, ApiResponse, GenerateAccessCodesResponse };
