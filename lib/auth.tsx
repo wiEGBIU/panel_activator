@@ -61,6 +61,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // Initialize superadmin credentials if not exists
+    const superadminCreds = localStorage.getItem('superadmin_credentials');
+    if (!superadminCreds) {
+      // Set default superadmin credentials on first run
+      const defaultCreds = { username: 'superadmin', password: 'admin123' };
+      localStorage.setItem('superadmin_credentials', JSON.stringify(defaultCreds));
+    }
+
     setIsLoading(false);
   }, []);
 
@@ -68,26 +76,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     
     try {
-      // Load demo credentials from localStorage
-      const demoCredentials = localStorage.getItem('demo_credentials');
-      let demoUsername = 'superadmin';
-      let demoPassword = 'admin123';
+      // Load superadmin credentials from localStorage
+      const superadminCreds = localStorage.getItem('superadmin_credentials');
+      let superUsername = 'superadmin';
+      let superPassword = 'admin123';
       
-      if (demoCredentials) {
+      if (superadminCreds) {
         try {
-          const parsed = JSON.parse(demoCredentials);
-          demoUsername = parsed.username;
-          demoPassword = parsed.password;
+          const parsed = JSON.parse(superadminCreds);
+          superUsername = parsed.username;
+          superPassword = parsed.password;
         } catch (error) {
-          console.error('Error parsing demo credentials:', error);
+          console.error('Error parsing superadmin credentials:', error);
         }
       }
 
-      // Super admin login (using demo credentials)
-      if (username === demoUsername && password === demoPassword) {
+      // Super admin login
+      if (username === superUsername && password === superPassword) {
         const superUser: User = {
           id: 'super-1',
-          username: demoUsername,
+          username: superUsername,
           role: 'superadmin'
         };
         setUser(superUser);
@@ -196,9 +204,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Only superadmin can update credentials');
     }
 
-    // Update the demo credentials in localStorage
+    // Update the superadmin credentials in localStorage
     const newCredentials = { username, password };
-    localStorage.setItem('demo_credentials', JSON.stringify(newCredentials));
+    localStorage.setItem('superadmin_credentials', JSON.stringify(newCredentials));
     
     // Log out the user so they need to login with new credentials
     logout();

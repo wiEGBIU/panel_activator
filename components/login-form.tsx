@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Shield, User, Settings } from 'lucide-react';
+import { Eye, EyeOff, Shield, User } from 'lucide-react';
 
 export function LoginForm() {
   const [username, setUsername] = useState('');
@@ -34,26 +34,6 @@ export function LoginForm() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleDemoLogin = () => {
-    // Load demo credentials from localStorage
-    const demoCredentials = localStorage.getItem('demo_credentials');
-    let demoUsername = 'superadmin';
-    let demoPassword = 'admin123';
-    
-    if (demoCredentials) {
-      try {
-        const parsed = JSON.parse(demoCredentials);
-        demoUsername = parsed.username;
-        demoPassword = parsed.password;
-      } catch (error) {
-        console.error('Error loading demo credentials:', error);
-      }
-    }
-
-    setUsername(demoUsername);
-    setPassword(demoPassword);
   };
 
   return (
@@ -161,24 +141,14 @@ export function LoginForm() {
               transition={{ delay: 0.6 }}
               className="mt-8"
             >
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <p className="font-medium">Secure Access</p>
+                    <p>This is a production system. Please use your assigned credentials to access the admin dashboard.</p>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white dark:bg-gray-900 text-gray-500">Quick Access</span>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <Button
-                  type="button"
-                  onClick={handleDemoLogin}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Use Demo Credentials
-                </Button>
               </div>
             </motion.div>
           </CardContent>
