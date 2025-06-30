@@ -21,7 +21,10 @@ import {
   Search,
   CheckCheck,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Copy,
+  CheckCircle,
+  Sparkles
 } from 'lucide-react';
 
 interface AccessCode {
@@ -46,6 +49,10 @@ export function AccessCodesPanel() {
   // Generation form
   const [generateCount, setGenerateCount] = useState(10);
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Newly generated codes
+  const [newlyGeneratedCodes, setNewlyGeneratedCodes] = useState<string[]>([]);
+  const [showNewCodes, setShowNewCodes] = useState(false);
 
   const apiClient = user ? new ApiClient({ 
     baseUrl: user.role === 'superadmin' ? 'http://localhost:8000' : user.api_host || 'http://localhost:8000' 
@@ -97,8 +104,17 @@ export function AccessCodesPanel() {
     
     setIsGenerating(true);
     try {
-      await apiClient.generateAccessCodes(generateCount);
-      toast.success(`Generated ${generateCount} access codes`);
+      const response = await apiClient.generateAccessCodes(generateCount);
+      
+      // Extract the newly generated codes from the response
+      if (response.access_codes && Array.isArray(response.access_codes)) {
+        setNewlyGeneratedCodes(response.access_codes);
+        setShowNewCodes(true);
+        toast.success(`Generated ${generateCount} access codes`);
+      } else {
+        toast.success(`Generated ${generateCount} access codes`);
+      }
+      
       loadAccessCodesCount();
       if (showCodes) {
         loadAccessCodes();
@@ -147,6 +163,34 @@ export function AccessCodesPanel() {
       await loadAccessCodes();
     }
     setShowCodes(!showCodes);
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard!');
+    } catch (error) {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  const copyAllNewCodes = async () => {
+    const allCodes = newlyGeneratedCodes.join('\n');
+    await copyToClipboard(allCodes);
+  };
+
+  const exportNewCodes = () => {
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      "Code,Generated At,Status\n" +
+      newlyGeneratedCodes.map(code => `${code},${new Date().toISOString()},Active`).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `newly_generated_access_codes_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const filteredCodes = accessCodes.filter(code => 
@@ -257,6 +301,99 @@ export function AccessCodesPanel() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Newly Generated Codes Section */}
+      <AnimatePresence>
+        {showNewCodes && newlyGeneratedCodes.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Card className="border-2 border-green-200 dark:border-green-800 shadow-lg bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center space-x-2">
+                    <Sparkles className="w-5 h-5 text-green-500" />
+                    <span className="text-green-700 dark:text-green-300">Newly Generated Codes</span>
+                    <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-xs font-medium">
+                      {newlyGeneratedCodes.length} codes
+                    </span>
+                  </CardTitle>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      onClick={exportNewCodes}
+                      variant="outline"
+                      size="sm"
+                      className="border-green-300 text-green-700 hover:bg-green-100 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-900/20"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                    <Button
+                      onClick={copyAllNewCodes}
+                      variant="outline"
+                      size="sm"
+                      className="border-green-300 text-green-700 hover:bg-green-100 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-900/20"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy All
+                    </Button>
+                    <Button
+                      onClick={() => setShowNewCodes(false)}
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      ×
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {newlyGeneratedCodes.map((code, index) => (
+                    <motion.div
+                      key={code}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 rounded-lg hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors border border-green-200 dark:border-green-800"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <div className="font-mono text-sm font-medium text-gray-900 dark:text-white">
+                          {code}
+                        </div>
+                      </div>
+                      
+                      <Button
+                        onClick={() => copyToClipboard(code)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-green-600 hover:text-green-700 hover:bg-green-100 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </motion.div>
+                  ))}
+                </div>
+                
+                <div className="mt-4 p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <Sparkles className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5" />
+                    <div className="text-sm text-green-800 dark:text-green-200">
+                      <p className="font-medium">Fresh Access Codes Generated!</p>
+                      <p>These codes are ready to use for user activations. Copy individual codes or export all at once.</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Codes List */}
       <motion.div
@@ -423,6 +560,14 @@ export function AccessCodesPanel() {
                             <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
                               Active
                             </span>
+                            <Button
+                              onClick={() => copyToClipboard(code.code)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
                             <Button
                               onClick={() => handleDelete(code.code)}
                               variant="ghost"
