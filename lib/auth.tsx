@@ -41,49 +41,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Configuration - Replace with your chosen service
-type StorageService = 'jsonbin' | 'pantry' | 'jsonstorage';
-
-interface StorageConfig {
-  service: StorageService;
-  jsonbin: {
-    binId: string;
-    apiKey: string;
-    baseUrl: string;
-  };
-  pantry: {
-    pantryId: string;
-    basketName: string;
-    baseUrl: string;
-  };
-  jsonstorage: {
-    endpointId: string;
-    baseUrl: string;
-  };
-}
-
-const STORAGE_CONFIG: StorageConfig = {
-  service: 'jsonbin' as StorageService, // 'jsonbin' | 'pantry' | 'jsonstorage'
-  
-  // JSONBin.io configuration
-  jsonbin: {
-    binId: '686238628561e97a502eb223 ', // Replace with your bin ID
-    apiKey: '$2a$10$m301Vhg578IV6wGTDKXD0OC487psmAWMGU2BxI12sC5qnAoIk2W/u', // Replace with your API key (optional for read-only)
-    baseUrl: 'https://api.jsonbin.io/v3/b'
-  },
-  
-  // Pantry configuration
-  pantry: {
-    pantryId: 'YOUR_PANTRY_ID', // Replace with your pantry ID
-    basketName: 'auth_data',
-    baseUrl: 'https://getpantry.cloud/apiv1/pantry'
-  },
-  
-  // JsonStorage.net configuration
-  jsonstorage: {
-    endpointId: 'YOUR_ENDPOINT_ID', // Replace with your endpoint ID
-    baseUrl: 'https://api.jsonstorage.net/v1/json'
-  }
+// JSONBin.io Configuration - Replace with your actual values
+const JSONBIN_CONFIG = {
+  binId: 'YOUR_BIN_ID', // Replace with your bin ID from JSONBin.io
+  apiKey: 'YOUR_API_KEY', // Replace with your API key from JSONBin.io
+  baseUrl: 'https://api.jsonbin.io/v3/b'
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -91,37 +53,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Storage API functions
+  // JSONBin.io API functions
   const loadAuthData = async (): Promise<AuthData> => {
-    const config = STORAGE_CONFIG[STORAGE_CONFIG.service as keyof Omit<StorageConfig, 'service'>];
-    
     try {
-      let response;
+      const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/${JSONBIN_CONFIG.binId}/latest`, {
+        headers: JSONBIN_CONFIG.apiKey ? { 'X-Master-Key': JSONBIN_CONFIG.apiKey } : {}
+      });
       
-      switch (STORAGE_CONFIG.service) {
-        case 'jsonbin':
-          response = await fetch(`${config.baseUrl}/${config.binId}/latest`, {
-            headers: config.apiKey ? { 'X-Master-Key': config.apiKey } : {}
-          });
-          if (response.ok) {
-            const data = await response.json();
-            return data.record;
-          }
-          break;
-          
-        case 'pantry':
-          response = await fetch(`${config.baseUrl}/${config.pantryId}/basket/${config.basketName}`);
-          if (response.ok) {
-            return await response.json();
-          }
-          break;
-          
-        case 'jsonstorage':
-          response = await fetch(`${config.baseUrl}/${config.endpointId}`);
-          if (response.ok) {
-            return await response.json();
-          }
-          break;
+      if (response.ok) {
+        const data = await response.json();
+        return data.record;
       }
       
       // If no data exists, return defaults
@@ -141,40 +82,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveAuthData = async (data: AuthData): Promise<void> => {
-    const config = STORAGE_CONFIG[STORAGE_CONFIG.service as keyof Omit<StorageConfig, 'service'>];
-    
     try {
-      switch (STORAGE_CONFIG.service) {
-        case 'jsonbin':
-          await fetch(`${config.baseUrl}/${config.binId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(config.apiKey ? { 'X-Master-Key': config.apiKey } : {})
-            },
-            body: JSON.stringify(data)
-          });
-          break;
-          
-        case 'pantry':
-          await fetch(`${config.baseUrl}/${config.pantryId}/basket/${config.basketName}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-          });
-          break;
-          
-        case 'jsonstorage':
-          await fetch(`${config.baseUrl}/${config.endpointId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-          });
-          break;
+      const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/${JSONBIN_CONFIG.binId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(JSONBIN_CONFIG.apiKey ? { 'X-Master-Key': JSONBIN_CONFIG.apiKey } : {})
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save data: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Failed to save auth data:', error);
