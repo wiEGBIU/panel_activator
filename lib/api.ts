@@ -51,6 +51,59 @@ interface ApiResponse {
   result?: any;
 }
 
+// Log interfaces
+interface LogEntry {
+  timestamp: string;
+  level: string;
+  function: string;
+  message: string;
+}
+
+interface LogsResponse {
+  logs: LogEntry[];
+  count: number;
+  timestamp: string;
+}
+
+interface LogStatsResponse {
+  total_logs: number;
+  level_counts: Record<string, number>;
+  function_counts: Record<string, number>;
+  active_subscribers: number;
+  timestamp: string;
+}
+
+interface LogSearchResponse {
+  logs: LogEntry[];
+  count: number;
+  filters_applied: {
+    query?: string;
+    level?: string;
+    function?: string;
+    limit: number;
+  };
+  timestamp: string;
+}
+
+// Checker interfaces
+interface CheckerResults {
+  working_codes: string[];
+  already_redeemed: string[];
+  non_existent: string[];
+  error: string[];
+}
+
+interface CheckerResponse {
+  results: CheckerResults;
+  summary: {
+    total_codes: number;
+    working_codes: number;
+    already_redeemed: number;
+    non_existent: number;
+    errors: number;
+  };
+}
+
 class ApiClient {
   private config: ApiConfig;
 
@@ -200,6 +253,42 @@ class ApiClient {
     });
   }
 
+  // Logs Endpoints
+  async getRecentLogs(limit: number = 100): Promise<LogsResponse> {
+    return this.request<LogsResponse>(`/logs/recent?limit=${limit}`);
+  }
+
+  async clearLogs(): Promise<ApiResponse> {
+    return this.request<ApiResponse>('/logs/clear', {
+      method: 'POST',
+    });
+  }
+
+  async getLogStats(): Promise<LogStatsResponse> {
+    return this.request<LogStatsResponse>('/logs/stats');
+  }
+
+  async searchLogs(query?: string, level?: string, functionName?: string, limit: number = 100): Promise<LogSearchResponse> {
+    const params = new URLSearchParams();
+    if (query) params.append('query', query);
+    if (level) params.append('level', level);
+    if (functionName) params.append('function', functionName);
+    params.append('limit', limit.toString());
+
+    return this.request<LogSearchResponse>(`/logs/search?${params.toString()}`);
+  }
+
+  // Checker Endpoint
+  async checkPromoCodes(codes: string[]): Promise<CheckerResponse> {
+    return this.request<CheckerResponse>('/checker', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(codes),
+    });
+  }
+
   // Health Check
   async healthCheck(): Promise<any> {
     return this.request('/');
@@ -207,4 +296,18 @@ class ApiClient {
 }
 
 export { ApiClient };
-export type { ApiConfig, CountResponse, PromoCodesCountsResponse, AccessCodesResponse, PromoCodesResponse, ApiResponse, GenerateAccessCodesResponse };
+export type { 
+  ApiConfig, 
+  CountResponse, 
+  PromoCodesCountsResponse, 
+  AccessCodesResponse, 
+  PromoCodesResponse, 
+  ApiResponse, 
+  GenerateAccessCodesResponse,
+  LogEntry,
+  LogsResponse,
+  LogStatsResponse,
+  LogSearchResponse,
+  CheckerResults,
+  CheckerResponse
+};

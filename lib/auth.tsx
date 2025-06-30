@@ -13,7 +13,7 @@ export interface User {
 export interface Admin {
   id: string;
   username: string;
-  password: string; // Store password for validation
+  password: string;
   api_host: string;
   created_at: string;
 }
@@ -41,68 +41,46 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// JSONBin.io Configuration - Replace with your actual values
-const JSONBIN_CONFIG = {
-  binId: '686238628561e97a502eb223', // Replace with your bin ID from JSONBin.io
-  apiKey: '$2a$10$m301Vhg578IV6wGTDKXD0OC487psmAWMGU2BxI12sC5qnAoIk2W/u', // Replace with your API key from JSONBin.io
-  baseUrl: 'https://api.jsonbin.io/v3/b'
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [authData, setAuthData] = useState<AuthData>({
+    superadmin_credentials: { username: 'superadmin', password: 'admin123' },
+    admins: []
+  });
 
-  // JSONBin.io API functions
-  const loadAuthData = async (): Promise<AuthData> => {
+  // Load auth data from localStorage (secure client-side storage)
+  const loadAuthData = (): AuthData => {
     try {
-      const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/${JSONBIN_CONFIG.binId}/latest`, {
-        headers: JSONBIN_CONFIG.apiKey ? { 'X-Master-Key': JSONBIN_CONFIG.apiKey } : {}
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        return data.record;
+      const stored = localStorage.getItem('admin_auth_data');
+      if (stored) {
+        return JSON.parse(stored);
       }
-      
-      // If no data exists, return defaults
-      throw new Error('No data found');
-      
     } catch (error) {
-      console.log('No existing data found, using defaults');
-      // Return default data structure
-      return {
-        superadmin_credentials: {
-          username: 'superadmin',
-          password: 'admin123'
-        },
-        admins: []
-      };
+      console.error('Error loading auth data:', error);
     }
+    
+    // Return default data if nothing stored
+    return {
+      superadmin_credentials: { username: 'superadmin', password: 'admin123' },
+      admins: []
+    };
   };
 
-  const saveAuthData = async (data: AuthData): Promise<void> => {
+  // Save auth data to localStorage
+  const saveAuthData = (data: AuthData): void => {
     try {
-      const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/${JSONBIN_CONFIG.binId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(JSONBIN_CONFIG.apiKey ? { 'X-Master-Key': JSONBIN_CONFIG.apiKey } : {})
-        },
-        body: JSON.stringify(data)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to save data: ${response.statusText}`);
-      }
+      localStorage.setItem('admin_auth_data', JSON.stringify(data));
+      setAuthData(data);
     } catch (error) {
-      console.error('Failed to save auth data:', error);
+      console.error('Error saving auth data:', error);
       throw error;
     }
   };
 
   useEffect(() => {
-    const initializeAuth = async () => {
+    const initializeAuth = () => {
       // Load user from cookie
       const savedUser = Cookies.get('user');
       if (savedUser) {
@@ -114,21 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Load auth data from remote storage
-      try {
-        const authData = await loadAuthData();
-        setAdmins(authData.admins);
-        
-        // Initialize with default data if this is the first time
-        if (authData.admins.length === 0 && 
-            authData.superadmin_credentials.username === 'superadmin' && 
-            authData.superadmin_credentials.password === 'admin123') {
-          await saveAuthData(authData);
-        }
-      } catch (error) {
-        console.error('Error loading auth data:', error);
-      }
-
+      // Load auth data from localStorage
+      const loadedAuthData = loadAuthData();
+      setAuthData(loadedAuthData);
+      setAdmins(loadedAuthData.admins);
       setIsLoading(false);
     };
 
@@ -139,15 +106,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     
     try {
-      // Load fresh data from remote storage
-      const authData = await loadAuthData();
+      // Load fresh data from localStorage
+      const currentAuthData = loadAuthData();
       
       // Super admin login
-      if (username === authData.superadmin_credentials.username && 
-          password === authData.superadmin_credentials.password) {
+      if (username === currentAuthData.superadmin_credentials.username && 
+          password === currentAuthData.superadmin_credentials.password) {
         const superUser: User = {
           id: 'super-1',
-          username: authData.superadmin_credentials.username,
+          username: currentAuthData.superadmin_credentials.username,
           role: 'superadmin'
         };
         setUser(superUser);
@@ -156,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Regular admin login
-      const admin = authData.admins.find(a => a.username === username && a.password === password);
+      const admin = currentAuthData.admins.find(a => a.username === username && a.password === password);
       if (admin) {
         const adminUser: User = {
           id: admin.id,
@@ -187,10 +154,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user?.role !== 'superadmin') return false;
 
     try {
-      const authData = await loadAuthData();
+      const currentAuthData = loadAuthData();
       
       // Check if username already exists
-      if (authData.admins.some(admin => admin.username === username)) {
+      if (currentAuthData.admins.some(admin => admin.username === username)) {
         return false;
       }
 
@@ -202,9 +169,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         created_at: new Date().toISOString()
       };
 
-      authData.admins.push(newAdmin);
-      await saveAuthData(authData);
-      setAdmins(authData.admins);
+      currentAuthData.admins.push(newAdmin);
+      saveAuthData(currentAuthData);
+      setAdmins(currentAuthData.admins);
       return true;
     } catch (error) {
       console.error('Error adding admin:', error);
@@ -216,10 +183,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user?.role !== 'superadmin') return;
 
     try {
-      const authData = await loadAuthData();
-      authData.admins = authData.admins.filter(a => a.id !== id);
-      await saveAuthData(authData);
-      setAdmins(authData.admins);
+      const currentAuthData = loadAuthData();
+      currentAuthData.admins = currentAuthData.admins.filter(a => a.id !== id);
+      saveAuthData(currentAuthData);
+      setAdmins(currentAuthData.admins);
     } catch (error) {
       console.error('Error removing admin:', error);
       throw error;
@@ -230,21 +197,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user?.role !== 'superadmin') return false;
 
     try {
-      const authData = await loadAuthData();
+      const currentAuthData = loadAuthData();
       
       // Check if username already exists (excluding current admin)
-      if (authData.admins.some(admin => admin.username === username && admin.id !== id)) {
+      if (currentAuthData.admins.some(admin => admin.username === username && admin.id !== id)) {
         return false;
       }
 
-      authData.admins = authData.admins.map(admin => 
+      currentAuthData.admins = currentAuthData.admins.map(admin => 
         admin.id === id 
           ? { ...admin, username, password, api_host }
           : admin
       );
       
-      await saveAuthData(authData);
-      setAdmins(authData.admins);
+      saveAuthData(currentAuthData);
+      setAdmins(currentAuthData.admins);
       return true;
     } catch (error) {
       console.error('Error updating admin:', error);
@@ -256,21 +223,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || user.role !== 'admin') return false;
 
     try {
-      const authData = await loadAuthData();
+      const currentAuthData = loadAuthData();
       
       // Check if username already exists (excluding current admin)
-      if (authData.admins.some(admin => admin.username === username && admin.id !== user.id)) {
+      if (currentAuthData.admins.some(admin => admin.username === username && admin.id !== user.id)) {
         return false;
       }
 
-      authData.admins = authData.admins.map(admin => 
+      currentAuthData.admins = currentAuthData.admins.map(admin => 
         admin.id === user.id 
           ? { ...admin, username, password }
           : admin
       );
       
-      await saveAuthData(authData);
-      setAdmins(authData.admins);
+      saveAuthData(currentAuthData);
+      setAdmins(currentAuthData.admins);
       
       // Log out the user so they need to login with new credentials
       logout();
@@ -287,9 +254,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const authData = await loadAuthData();
-      authData.superadmin_credentials = { username, password };
-      await saveAuthData(authData);
+      const currentAuthData = loadAuthData();
+      currentAuthData.superadmin_credentials = { username, password };
+      saveAuthData(currentAuthData);
       
       // Log out the user so they need to login with new credentials
       logout();

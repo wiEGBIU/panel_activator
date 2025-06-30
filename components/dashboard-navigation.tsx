@@ -12,7 +12,9 @@ import {
   BarChart3,
   Settings,
   Shield,
-  User
+  User,
+  FileText,
+  Search
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -23,45 +25,77 @@ interface NavigationProps {
 export function DashboardNavigation({ activeTab, onTabChange }: NavigationProps) {
   const { user } = useAuth();
 
-  const navigationItems = [
-    {
-      id: 'overview',
-      label: 'Overview',
-      icon: BarChart3,
-      description: 'Dashboard overview and statistics'
-    },
-    {
-      id: 'access-codes',
-      label: 'Access Codes',
-      icon: Key,
-      description: 'Manage access codes and generation'
-    },
-    {
-      id: 'promo-codes',
-      label: 'Promo Codes',
-      icon: Gift,
-      description: 'Manage promotional codes'
-    },
-    {
-      id: 'user-activation',
-      label: 'User Activation',
-      icon: Mail,
-      description: 'Send emails and activate users'
-    },
-    {
-      id: 'profile',
-      label: 'Profile',
-      icon: User,
-      description: 'Manage your account settings'
-    },
-    // Only show admin management for superadmin
-    ...(user?.role === 'superadmin' ? [{
-      id: 'admin-management',
-      label: 'Admin Management',
-      icon: Shield,
-      description: 'Manage admin users and API endpoints'
-    }] : [])
-  ];
+  const getNavigationItems = () => {
+    if (user?.role === 'superadmin') {
+      return [
+        {
+          id: 'overview',
+          label: 'Overview',
+          icon: BarChart3,
+          description: 'Admin statistics and system overview'
+        },
+        {
+          id: 'admin-management',
+          label: 'Admin Management',
+          icon: Shield,
+          description: 'Manage admin users and API endpoints'
+        },
+        {
+          id: 'profile',
+          label: 'Profile',
+          icon: User,
+          description: 'Manage your account settings'
+        }
+      ];
+    } else {
+      return [
+        {
+          id: 'overview',
+          label: 'Overview',
+          icon: BarChart3,
+          description: 'Dashboard overview and statistics'
+        },
+        {
+          id: 'access-codes',
+          label: 'Access Codes',
+          icon: Key,
+          description: 'Manage access codes and generation'
+        },
+        {
+          id: 'promo-codes',
+          label: 'Promo Codes',
+          icon: Gift,
+          description: 'Manage promotional codes'
+        },
+        {
+          id: 'user-activation',
+          label: 'User Activation',
+          icon: Mail,
+          description: 'Send emails and activate users'
+        },
+        {
+          id: 'logs',
+          label: 'System Logs',
+          icon: FileText,
+          description: 'View and monitor system logs'
+        },
+        {
+          id: 'checker',
+          label: 'Code Checker',
+          icon: Search,
+          description: 'Check and validate promo codes'
+        },
+        {
+          id: 'profile',
+          label: 'Profile',
+          icon: User,
+          description: 'Manage your account settings'
+        }
+      ];
+    }
+  };
+
+  const navigationItems = getNavigationItems();
 
   return (
     <Card className="p-6 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-0 shadow-lg">
