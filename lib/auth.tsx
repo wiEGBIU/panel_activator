@@ -43,8 +43,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 // JSONBin.io Configuration - Replace with your actual values
 const JSONBIN_CONFIG = {
-  binId: 'YOUR_BIN_ID', // Replace with your bin ID from JSONBin.io
-  apiKey: 'YOUR_API_KEY', // Replace with your API key from JSONBin.io
+  binId: '686238628561e97a502eb223', // Replace with your bin ID from JSONBin.io
+  apiKey: '$2a$10$33VINL28V80ylIbqC9QtWevFReMZ7jboymtIOVKZEFR9RaSE6thYC', // Replace with your API key from JSONBin.io
   baseUrl: 'https://api.jsonbin.io/v3/b'
 };
 
