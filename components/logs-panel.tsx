@@ -54,8 +54,8 @@ export function LogsPanel() {
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLevel, setSelectedLevel] = useState<string>('');
-  const [selectedFunction, setSelectedFunction] = useState<string>('');
+  const [selectedLevel, setSelectedLevel] = useState<string>('all');
+  const [selectedFunction, setSelectedFunction] = useState<string>('all');
   const [limit, setLimit] = useState(100);
   
   // Pagination
@@ -72,11 +72,11 @@ export function LogsPanel() {
     try {
       let response: LogsResponse;
       
-      if (searchQuery || selectedLevel || selectedFunction) {
+      if (searchQuery || (selectedLevel && selectedLevel !== 'all') || (selectedFunction && selectedFunction !== 'all')) {
         response = await apiClient.searchLogs(
           searchQuery || undefined,
-          selectedLevel || undefined,
-          selectedFunction || undefined,
+          selectedLevel !== 'all' ? selectedLevel : undefined,
+          selectedFunction !== 'all' ? selectedFunction : undefined,
           limit
         );
       } else {
@@ -324,7 +324,7 @@ export function LogsPanel() {
                     <SelectValue placeholder="All levels" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All levels</SelectItem>
+                    <SelectItem value="all">All levels</SelectItem>
                     <SelectItem value="DEBUG">Debug</SelectItem>
                     <SelectItem value="INFO">Info</SelectItem>
                     <SelectItem value="WARNING">Warning</SelectItem>
@@ -341,7 +341,7 @@ export function LogsPanel() {
                     <SelectValue placeholder="All functions" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All functions</SelectItem>
+                    <SelectItem value="all">All functions</SelectItem>
                     {getUniqueFunctions().map((func) => (
                       <SelectItem key={func} value={func}>{func}</SelectItem>
                     ))}

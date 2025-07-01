@@ -278,13 +278,10 @@ class ApiClient {
     return this.request<LogSearchResponse>(`/logs/search?${params.toString()}`);
   }
 
-  // Checker Endpoint
+  // Checker Endpoint - Fixed method
   async checkPromoCodes(codes: string[]): Promise<CheckerResponse> {
     return this.request<CheckerResponse>('/checker', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      method: 'POST', // Changed from GET to POST
       body: JSON.stringify(codes),
     });
   }
